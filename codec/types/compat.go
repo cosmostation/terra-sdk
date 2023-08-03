@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"runtime/debug"
 
+	cjsonpb "github.com/cosmos/gogoproto/jsonpb"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 
@@ -190,6 +191,34 @@ type ProtoJSONPacker struct {
 var _ AnyUnpacker = ProtoJSONPacker{}
 
 func (a ProtoJSONPacker) UnpackAny(any *Any, _ interface{}) error {
+	if any == nil {
+		return nil
+	}
+
+	if any.cachedValue != nil {
+		err := UnpackInterfaces(any.cachedValue, a)
+		if err != nil {
+			return err
+		}
+	}
+
+	bz, err := a.JSONPBMarshaler.MarshalToString(any)
+	any.compat = &anyCompat{
+		jsonBz: []byte(bz),
+		err:    err,
+	}
+
+	return err
+}
+
+// ProtoJSONPacker is an AnyUnpacker provided for compatibility with jsonpb
+type CustomProtoJSONPacker struct {
+	JSONPBMarshaler *cjsonpb.Marshaler
+}
+
+var _ AnyUnpacker = CustomProtoJSONPacker{}
+
+func (a CustomProtoJSONPacker) UnpackAny(any *Any, _ interface{}) error {
 	if any == nil {
 		return nil
 	}
